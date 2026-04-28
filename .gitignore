@@ -1,0 +1,188 @@
+# =============================================================================
+# Lake Ontario Fish CV — .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Local environment-specific files
+# -----------------------------------------------------------------------------
+docs/local_paths.md
+.env
+.env.local
+*.local
+
+# -----------------------------------------------------------------------------
+# Model checkpoints and weights (large binary files, not for git)
+# -----------------------------------------------------------------------------
+model/
+models/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.bin
+*.h5
+*.onnx
+*.engine
+*.tflite
+*.pb
+
+# BoT-SORT / tracker weights
+*reid*.pth
+*reid*.pt
+
+# -----------------------------------------------------------------------------
+# Reference code from previous projects (archived, not part of new repo)
+# -----------------------------------------------------------------------------
+gradio_app/
+salmonid_app-main/
+
+# -----------------------------------------------------------------------------
+# Inference outputs (stored on G: drive, not in repo)
+# -----------------------------------------------------------------------------
+outputs/
+output/
+runs/
+run_*/
+
+# -----------------------------------------------------------------------------
+# Data files (parquet, SQLite, large CSVs, video files)
+# -----------------------------------------------------------------------------
+*.parquet
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-journal
+
+# Videos and images (raw data, never in repo)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+
+# Allow small example/test images if needed in docs
+!docs/**/*.png
+!docs/**/*.jpg
+!docs/**/*.jpeg
+
+# Large CSV files (small ones for config can be force-added with git add -f)
+*.csv
+!**/config/*.csv
+
+# -----------------------------------------------------------------------------
+# Label Studio
+# -----------------------------------------------------------------------------
+label_studio_data/
+ls_data/
+*.label_studio
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+pip-wheel-metadata/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# -----------------------------------------------------------------------------
+# Jupyter / notebooks
+# -----------------------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+*-checkpoint.ipynb
+
+# -----------------------------------------------------------------------------
+# R (in case any R analysis ends up alongside this project)
+# -----------------------------------------------------------------------------
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# -----------------------------------------------------------------------------
+# IDE and editor files
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*~
+.spyderproject
+.spyproject
+
+# -----------------------------------------------------------------------------
+# Operating system files
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# -----------------------------------------------------------------------------
+# Logs and temporary files
+# -----------------------------------------------------------------------------
+*.log
+logs/
+log/
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# -----------------------------------------------------------------------------
+# Secrets and credentials (defence in depth — never commit these)
+# -----------------------------------------------------------------------------
+*.pem
+*.key
+*.crt
+credentials.json
+secrets.yaml
+secrets.yml
+.aws/
+.ssh/
+
+# -----------------------------------------------------------------------------
+# Documentation builds
+# -----------------------------------------------------------------------------
+docs/_build/
+docs/build/
+site/
+
+# -----------------------------------------------------------------------------
+# Misc
+# -----------------------------------------------------------------------------
+.cache/
+node_modules/
