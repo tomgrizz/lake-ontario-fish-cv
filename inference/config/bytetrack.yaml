@@ -1,0 +1,29 @@
+# ByteTrack settings for salmonid tracking.
+#
+# These mirror the InferenceConfig defaults and are provided here as a
+# reference and documentation resource. They are not loaded at runtime;
+# edit InferenceConfig in config.py to change actual behaviour.
+#
+# Parameter notes:
+#
+#   match_thresh: cost threshold for the Hungarian assignment step.
+#     cost = 1 - IoU, so match_thresh = 0.99 accepts any IoU > 0.01.
+#     Very lenient; effectively delegates association entirely to the
+#     Kalman filter prediction. Increase (e.g. 0.80) to require higher
+#     spatial overlap and reduce incorrect cross-fish associations.
+#
+#   track_buffer: frames a lost track is kept alive (Kalman prediction only).
+#     At 25fps, 30 frames ≈ 1.2 seconds. Covers brief occlusion by debris
+#     or a fish momentarily leaving the detector's confidence threshold.
+#
+#   track_thresh / min_conf: ByteTrack internally splits detections into
+#     high- and low-confidence tiers. Since run.py pre-filters all detections
+#     to >= box_score_thresh (0.6), every detection entering the tracker is
+#     already "high-confidence" and these thresholds are effectively redundant.
+
+tracker: bytetrack
+
+min_conf: 0.6
+track_thresh: 0.12
+match_thresh: 0.99
+track_buffer: 30
