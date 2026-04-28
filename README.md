@@ -28,7 +28,7 @@ Five salmonid species classified by the model:
 
 ## Deployment context
 
-Riverwatcher (Smith-Root) underwater camera systems deployed on Lake Ontario tributaries
+Riverwatcher (VAKI) underwater camera systems deployed on Lake Ontario tributaries
 record fish passage events year-round. Footage is processed through the inference
 pipeline to produce per-detection outputs (bounding boxes, species probabilities, track
 IDs), which feed both operational fish counts and the labeling workflow used to
