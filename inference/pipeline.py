@@ -265,9 +265,10 @@ def _build_tracker(cfg: InferenceConfig, fps: float, device: str):
     frame_rate = max(1, round(fps))
 
     if cfg.tracker == "bytetrack":
-        from boxmot import ByteTrack
-        return ByteTrack(
-            min_conf=cfg.bytetrack_min_conf,
+        # boxmot >=10: BYTETracker (no min_conf parameter; pre-filtering to
+        # box_score_thresh upstream makes it redundant anyway).
+        from boxmot import BYTETracker
+        return BYTETracker(
             track_thresh=cfg.bytetrack_track_thresh,
             match_thresh=cfg.bytetrack_match_thresh,
             track_buffer=cfg.bytetrack_track_buffer,
@@ -275,16 +276,17 @@ def _build_tracker(cfg: InferenceConfig, fps: float, device: str):
         )
 
     if cfg.tracker == "botsort":
-        from boxmot import BotSort
-        return BotSort(
-            reid_weights=Path(cfg.botsort_weights),
+        # boxmot >=10: BoTSORT (fp16 replaces half; model_weights replaces reid_weights).
+        from boxmot import BoTSORT
+        return BoTSORT(
+            model_weights=Path(cfg.botsort_weights),
             device=torch.device(device),
+            fp16=False,
             track_high_thresh=cfg.botsort_track_high_thresh,
             track_low_thresh=cfg.botsort_track_low_thresh,
             new_track_thresh=cfg.botsort_new_track_thresh,
             track_buffer=cfg.botsort_track_buffer,
             match_thresh=cfg.botsort_match_thresh,
-            half=False,
             frame_rate=frame_rate,
         )
 
