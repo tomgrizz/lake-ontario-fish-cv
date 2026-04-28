@@ -18,7 +18,7 @@ maintaining a defensible evaluation baseline across model versions.
 
 ## Target species
 
-Six salmonid species classified by the model:
+Five salmonid species classified by the model:
 
 - Chinook Salmon
 - Coho Salmon
