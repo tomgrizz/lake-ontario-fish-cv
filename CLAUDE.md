@@ -14,8 +14,10 @@ Atlantic Salmon, Brown Trout.
 > Note: confirm the exact species list against `model/mar10_2026_detr-resnet50/config.json`
 > (`id2label` field) before relying on this for code generation.
 
-Architecture: RT-DETR (`PekingU/rtdetr_v2_r50vd`) for detection and
-classification, BoT-SORT for tracking.
+Architecture: DETR (DetrForObjectDetection, ResNet-50 backbone) for detection and
+classification, BoT-SORT for tracking. The fine-tuned local checkpoint is
+`model/mar10_2026_detr-resnet50`; confirm architecture details against that
+checkpoint's `config.json` (`model_type`, `backbone`).
 
 ## Current focus
 
