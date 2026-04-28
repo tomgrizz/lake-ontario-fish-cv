@@ -305,7 +305,7 @@ def _check_disk(run_dir: Path, det_summary: dict, manifest: dict, full_corpus_n:
     else:
         status = "WARNING"
     print(f"[Disk] Extrapolated total output: {extrap_gb:.1f} GB  "
-          f"|  Free: {free_gb:.1f} GB  →  {status}")
+          f"|  Free: {free_gb:.1f} GB  ->  {status}")
 
 
 # ---------------------------------------------------------------------------
@@ -333,7 +333,7 @@ def _print_report(
     if log.get("error_rows"):
         print("  Recent errors:")
         for vid, msg in log["error_rows"]:
-            print(f"    {vid}  →  {msg}")
+            print(f"    {vid}  ->  {msg}")
 
     print()
     print(hr)

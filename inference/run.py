@@ -260,7 +260,7 @@ def _check_disk_space(det_dir: Path, n_processed: int, n_total: int) -> None:
 
     print(
         f"\n[Disk check] Extrapolated total output: {extrapolated_gb:.1f} GB  |  "
-        f"Free: {free_gb:.1f} GB  →  {status}"
+        f"Free: {free_gb:.1f} GB  ->  {status}"
     )
     if status == "WARNING":
         print("ERROR: Insufficient disk space. Aborting.")
