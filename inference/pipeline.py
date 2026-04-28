@@ -15,6 +15,13 @@ import numpy as np
 import torch
 from PIL import Image
 
+try:
+    from decord import VideoReader as _DecordVR
+    from decord import cpu as _decord_cpu
+    _DECORD_AVAILABLE = True
+except ImportError:
+    _DECORD_AVAILABLE = False
+
 from config import InferenceConfig
 from schema import (
     BACKGROUND_CLASS_IDX,
@@ -54,15 +61,7 @@ def process_video(
     Raises:
         IOError: if the video cannot be opened.
     """
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise IOError(f"Cannot open video: {video_path}")
-
-    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
+    fps, total_frames, height, width = _video_meta(video_path)
     tracker = _build_tracker(cfg, fps, device)
 
     # track_id -> {boxes, confs, frames, class_probs}
@@ -76,18 +75,8 @@ def process_video(
     last_frame_idx = 0
 
     try:
-        for frame_idx in range(total_frames):
-            ret, frame = cap.read()
-            if not ret:
-                break
+        for frame_idx, frame_rgb in _iter_frames(video_path, cfg.frame_skip):
             last_frame_idx = frame_idx
-
-            # Frame skipping: always call cap.read() to advance the stream,
-            # but skip inference on non-sampled frames.
-            if cfg.frame_skip > 1 and frame_idx % cfg.frame_skip != 0:
-                continue
-
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pil_image = Image.fromarray(frame_rgb)
 
             inputs = image_processor(pil_image, return_tensors="pt")
@@ -125,7 +114,9 @@ def process_video(
             else:
                 dets = np.column_stack([boxes, scores, labels])
 
-            res = tracker.update(dets, frame)
+            # BYTETracker ignores the frame argument (used only by appearance-based
+            # trackers). Pass the RGB array; it's unused either way.
+            res = tracker.update(dets, frame_rgb)
 
             for track in res:
                 x1, y1, x2, y2, track_id, conf, cls, det_ind = track
@@ -176,10 +167,68 @@ def process_video(
                 track_state[track_id]["class_probs"].append(prob_vec)
 
     finally:
-        cap.release()
+        pass  # reader cleanup handled inside _iter_frames
 
     tracks = _build_tracks(track_state, video_id, fps, width, cfg)
     return VideoResult(detections=all_detections, tracks=tracks)
+
+
+# ---------------------------------------------------------------------------
+# Video reading helpers (decord with OpenCV fallback)
+# ---------------------------------------------------------------------------
+
+def _video_meta(video_path: str) -> tuple[float, int, int, int]:
+    """Return (fps, total_frames, height, width) using whichever reader is available."""
+    if _DECORD_AVAILABLE:
+        try:
+            vr = _DecordVR(video_path, ctx=_decord_cpu(0))
+            fps = float(vr.get_avg_fps()) or 25.0
+            total_frames = len(vr)
+            h, w = vr[0].shape[:2]
+            return fps, total_frames, h, w
+        except Exception:
+            pass  # fall through to OpenCV
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise IOError(f"Cannot open video: {video_path}")
+    fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    cap.release()
+    return fps, total_frames, height, width
+
+
+def _iter_frames(video_path: str, frame_skip: int):
+    """Yield (frame_idx, frame_rgb_uint8) for every sampled frame.
+
+    Uses decord when available (2x faster CPU decode than OpenCV, returns RGB
+    directly). Falls back to OpenCV on ImportError or decord open failure.
+    """
+    if _DECORD_AVAILABLE:
+        try:
+            vr = _DecordVR(video_path, ctx=_decord_cpu(0))
+            indices = range(0, len(vr), frame_skip)
+            for frame_idx in indices:
+                yield frame_idx, vr[frame_idx].asnumpy()  # already RGB
+            return
+        except Exception:
+            pass  # fall through to OpenCV
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise IOError(f"Cannot open video: {video_path}")
+    try:
+        frame_idx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_idx % frame_skip == 0:
+                yield frame_idx, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_idx += 1
+    finally:
+        cap.release()
 
 
 # ---------------------------------------------------------------------------

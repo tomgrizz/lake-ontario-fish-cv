@@ -7,3 +7,4 @@ opencv-python
 boxmot
 pyarrow>=12.0.0
 tqdm
+decord
