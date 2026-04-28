@@ -43,7 +43,7 @@ def main() -> None:
     det_summary = _check_detections(run_dir, issues)
     track_summary = _check_tracks(run_dir, issues)
     _check_schema_version(run_dir, manifest, issues)
-    _check_disk(run_dir, det_summary, manifest)
+    _check_disk(run_dir, det_summary, manifest, args.full_corpus_n)
 
     _print_report(manifest, log_summary, det_summary, track_summary, issues)
 
@@ -292,11 +292,11 @@ def _check_schema_version(run_dir: Path, manifest: dict, issues: list) -> None:
             )
 
 
-def _check_disk(run_dir: Path, det_summary: dict, manifest: dict) -> None:
+def _check_disk(run_dir: Path, det_summary: dict, manifest: dict, full_corpus_n: int) -> None:
     if not det_summary.get("mean_size_kb"):
         return
-    n_total = manifest.get("n_total") or 244000
-    extrap_gb = (det_summary["mean_size_kb"] * 1024 * n_total) / 1e9
+    # Use the full corpus size for extrapolation, not the pilot total.
+    extrap_gb = (det_summary["mean_size_kb"] * 1024 * full_corpus_n) / 1e9
     free_gb = shutil.disk_usage(run_dir).free / 1e9
     if free_gb >= 3 * extrap_gb:
         status = "SUFFICIENT"
@@ -418,6 +418,9 @@ def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Validate an inference pipeline v2 run.")
     p.add_argument("--run-dir", required=True, metavar="DIR",
                    help="Path to the run output directory to validate.")
+    p.add_argument("--full-corpus-n", type=int, default=258955, metavar="N",
+                   help="Total video count in the full corpus for disk extrapolation "
+                        "(default: 258955).")
     return p.parse_args()
 
 

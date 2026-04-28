@@ -122,7 +122,12 @@ def process_video(
 
             for track in res:
                 x1, y1, x2, y2, track_id, conf, cls, det_ind = track
-                x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                # Clamp to frame bounds. DETR can predict boxes slightly outside
+                # [0, width] × [0, height]; the tracker Kalman state can too.
+                x1 = max(0, int(x1))
+                y1 = max(0, int(y1))
+                x2 = min(width, int(x2))
+                y2 = min(height, int(y2))
                 track_id, cls, det_ind = int(track_id), int(cls), int(det_ind)
 
                 is_real_detection = 0 <= det_ind < len(class_probs_np)
