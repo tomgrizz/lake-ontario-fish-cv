@@ -82,11 +82,18 @@ def process_video(
                 break
             last_frame_idx = frame_idx
 
+            # Frame skipping: always call cap.read() to advance the stream,
+            # but skip inference on non-sampled frames.
+            if cfg.frame_skip > 1 and frame_idx % cfg.frame_skip != 0:
+                continue
+
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             pil_image = Image.fromarray(frame_rgb)
 
             inputs = image_processor(pil_image, return_tensors="pt")
             pixel_values = inputs["pixel_values"].to(device)
+            if cfg.fp16:
+                pixel_values = pixel_values.half()
 
             with torch.no_grad():
                 outputs = model(pixel_values=pixel_values)

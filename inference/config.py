@@ -63,3 +63,15 @@ class InferenceConfig:
     output_dir: str = ""
     # Flush per-track summaries to SQLite every N successfully processed videos.
     checkpoint_every_n: int = 50
+
+    # ---- Speed ----
+    # Half-precision inference. ~1.5-2x throughput on RTX GPUs; negligible
+    # accuracy impact for DETR at this task.
+    fp16: bool = False
+    # torch.compile the model after loading. ~20-40% additional throughput on
+    # PyTorch 2.x. The first video in a run will be slow (compilation warm-up).
+    compile_model: bool = False
+    # Process every Nth frame. 1 = every frame; 2 = every other frame, etc.
+    # Fish passage events are multi-second so frame_skip=2 has negligible
+    # effect on detection coverage while halving inference time.
+    frame_skip: int = 1

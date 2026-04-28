@@ -85,6 +85,13 @@ def main() -> None:
     image_processor = AutoImageProcessor.from_pretrained(
         cfg.model_checkpoint, local_files_only=True
     )
+    if cfg.fp16:
+        model = model.half()
+        print("FP16 enabled.")
+    if cfg.compile_model:
+        print("Compiling model (first video will be slow — compilation warm-up) …")
+        model = torch.compile(model)
+        print("Model compiled.")
     print("Model loaded.")
 
     # Enumerate all videos across all sites.
@@ -312,6 +319,12 @@ def _parse_args() -> argparse.Namespace:
                    help="Re-attempt videos previously logged as 'error'.")
     p.add_argument("--limit", type=int, default=None, metavar="N",
                    help="Process only N randomly selected videos (for pilot runs).")
+    p.add_argument("--fp16", action="store_true",
+                   help="Half-precision inference (~1.5-2x throughput on RTX GPUs).")
+    p.add_argument("--compile", action="store_true", dest="compile_model",
+                   help="torch.compile the model after loading (~20-40%% extra throughput).")
+    p.add_argument("--frame-skip", type=int, default=1, metavar="N",
+                   help="Process every Nth frame (default: 1 = all frames).")
     return p.parse_args()
 
 
@@ -335,6 +348,9 @@ def _build_config(args: argparse.Namespace) -> InferenceConfig:
         tracker=args.tracker,
         box_score_thresh=args.box_score_thresh,
         checkpoint_every_n=args.checkpoint_every,
+        fp16=args.fp16,
+        compile_model=args.compile_model,
+        frame_skip=args.frame_skip,
     )
     if args.device is not None:
         # Manual device override bypasses cuda_device field.
