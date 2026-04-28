@@ -27,6 +27,7 @@ Output layout (under --output-dir):
 from __future__ import annotations
 
 import argparse
+import random
 import shutil
 import sqlite3
 import sys
@@ -88,13 +89,21 @@ def main() -> None:
 
     # Enumerate all videos across all sites.
     all_videos = _enumerate_videos(cfg.video_roots)
-    total = len(all_videos)
-    print(f"Found {total:,} videos across {len(cfg.video_roots)} site(s).")
+    total_on_disk = len(all_videos)
+    print(f"Found {total_on_disk:,} videos across {len(cfg.video_roots)} site(s).")
 
     # Determine which videos to skip based on processing_log.
     done_ids = _load_done_ids(log_db, retry_errors=args.retry_errors)
     todo = [(vid, path) for vid, path in all_videos if vid not in done_ids]
-    skipped_upfront = total - len(todo)
+
+    # --limit: shuffle randomly then cap (for pilot runs).
+    if args.limit is not None:
+        random.shuffle(todo)
+        todo = todo[: args.limit]
+        print(f"--limit {args.limit}: randomly selected {len(todo):,} videos.")
+
+    total = len(todo) + len(done_ids)
+    skipped_upfront = len(done_ids)
     print(
         f"Resuming: {len(todo):,} to process, "
         f"{skipped_upfront:,} already done (skipped)."
@@ -301,6 +310,8 @@ def _parse_args() -> argparse.Namespace:
                    help="Flush tracks to SQLite every N videos (default: 50).")
     p.add_argument("--retry-errors", action="store_true",
                    help="Re-attempt videos previously logged as 'error'.")
+    p.add_argument("--limit", type=int, default=None, metavar="N",
+                   help="Process only N randomly selected videos (for pilot runs).")
     return p.parse_args()
 
 
