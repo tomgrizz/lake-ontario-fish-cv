@@ -95,13 +95,22 @@ def process_video(
             keep = fish_max > cfg.box_score_thresh
             class_probs_np = probs_full[keep].cpu().numpy()  # (N_kept, 6)
 
-            # post_process_object_detection uses the same keep criterion (max fish-class
-            # prob > threshold). target_sizes=(height, width) corrects the reference
-            # bug where max(w, h) was passed for both dimensions, causing Y-coordinate
-            # scaling errors on non-square frames.
+            # The DETR image processor letterboxes every frame into a fixed square
+            # (pad_size, e.g. 800x800 for this checkpoint): resize keeping aspect
+            # ratio so longest side fits, then zero-pad bottom/right to a square.
+            # The model's outputs are normalized to that padded canvas, so
+            # post_process target_sizes must equal padded_size / resize_scale,
+            # not the original frame size. For 1280x960 with pad 800x800, that's
+            # (1280, 1280) — passing (960, 1280) under-scales Y by 0.75 and shifts
+            # boxes up. pixel_values.shape[-2:] gives the padded canvas; deriving
+            # the scale from there is robust to different processor configs.
+            padded_h, padded_w = pixel_values.shape[-2:]
+            resize_scale = min(padded_h / height, padded_w / width)
+            target_h = round(padded_h / resize_scale)
+            target_w = round(padded_w / resize_scale)
             detections = image_processor.post_process_object_detection(
                 outputs,
-                target_sizes=torch.tensor([[height, width]]),
+                target_sizes=torch.tensor([[target_h, target_w]]),
                 threshold=cfg.box_score_thresh,
             )[0]
 
