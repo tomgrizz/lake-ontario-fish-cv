@@ -9,6 +9,11 @@ docs/local_paths.md
 .env
 .env.local
 *.local
+# Claude Code per-user permission grants (the shared file is settings.json).
+.claude/settings.local.json
+
+# One-off / sandbox scripts and artifacts (never committed).
+scratch/
 
 # -----------------------------------------------------------------------------
 # Model checkpoints and weights (large binary files, not for git)
@@ -90,8 +95,10 @@ __pycache__/
 .Python
 
 # Virtual environments
-.venv/
-venv/
+# Use a glob so any .venv* / venv* directory (e.g. .venv-ls for the Label
+# Studio integration test) is ignored without having to remember to add it.
+.venv*/
+venv*/
 env/
 ENV/
 .python-version
