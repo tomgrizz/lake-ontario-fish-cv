@@ -83,6 +83,14 @@ class TrackSummary:
 # ---------------------------------------------------------------------------
 # PyArrow schema for per-detection Parquet files.
 # schema_version is stored as file-level metadata so every file is self-describing.
+#
+# y_coord_fix_applied is stamped here so files written by the post-fix
+# pipeline are self-identifying as "born with correct Y coordinates."
+# inference/fix_bbox_y.py uses the presence of this metadata key to decide
+# whether to skip a Parquet file (already correct) or rewrite it (legacy
+# buggy file from before pipeline.py target_sizes was patched).
+# Value "baseline_post_fix" => correct at write time.
+# Value "<ISO timestamp>"   => corrected post-hoc by fix_bbox_y.py.
 # ---------------------------------------------------------------------------
 DETECTION_SCHEMA: pa.Schema = pa.schema(
     [
@@ -105,7 +113,10 @@ DETECTION_SCHEMA: pa.Schema = pa.schema(
         pa.field("predicted_class", pa.int8()),
         pa.field("predicted_class_6", pa.int8()),
     ],
-    metadata={b"schema_version": str(SCHEMA_VERSION).encode()},
+    metadata={
+        b"schema_version":       str(SCHEMA_VERSION).encode(),
+        b"y_coord_fix_applied":  b"baseline_post_fix",
+    },
 )
 
 
