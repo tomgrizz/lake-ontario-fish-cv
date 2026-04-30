@@ -214,6 +214,11 @@ def _enumerate_videos(
             continue
         for p in sorted(root.rglob("*")):
             if p.suffix.lower() in VIDEO_EXTENSIONS and p.is_file():
+                # Skip _m.mp4 files — these are pre-annotated versions with
+                # burned-in overlays from a previous processing pass. Running
+                # inference on them would give the model corrupted input.
+                if p.stem.endswith("_m"):
+                    continue
                 rel = p.relative_to(root)
                 video_id = site_name + "/" + "/".join(rel.parts)
                 result.append((video_id, str(p)))
