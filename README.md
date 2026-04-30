@@ -66,9 +66,18 @@ specific to this environment.
 Fish tracks from the inference pipeline are reviewed in Label Studio. As a reviewer
 you just need a browser — no installation required.
 
+### Tailscale setup (first time only)
+
+Tailscale is a VPN that lets you securely connect to the labeling server
+from anywhere. You only do this once.
+
+1. Download and install Tailscale: https://tailscale.com/download
+2. Open Tailscale and sign in — ask Tom to add your account to the shared network.
+3. Once connected, your Tailscale icon in the system tray will show a green dot.
+
 ### Access
 
-Open this URL in your browser (you must be connected to Tailscale):
+With Tailscale running, open this URL in your browser:
 
 ```
 http://100.68.58.2:8080
@@ -97,16 +106,6 @@ Log in with the credentials Tom provided. You will land on the
 | **u** | Unsure — flag for senior review |
 
 5. Label Studio advances to the next task automatically after each submission.
-
-### Species ID cues (quick reference)
-
-| Species | Key features |
-|---------|-------------|
-| Chinook Salmon | Largest body, black gum line, black spots on both lobes of tail |
-| Coho Salmon | Smaller spots on upper tail lobe only, white gum line |
-| Atlantic Salmon | Spots above lateral line, forked tail, slender |
-| Rainbow Trout | Pink/red lateral stripe, heavily spotted including lower body |
-| Brown Trout | Orange/red spots with pale halos, squared tail |
 
 **Edge cases:** Label juveniles by species if confident. For partial views, label if
 confident — otherwise press **u**. If two fish appear in the same clip, press **m**.
