@@ -121,8 +121,8 @@ def _flag_multi_reviewed(conn: sqlite3.Connection) -> None:
             (video_id, track_id)
         )
 
-        # Check for disagreement.
-        labels = {r[0] for r in rows}  # unique final_labels
+        # Check for disagreement (compare final_label values, not reviewer IDs).
+        labels = {r[1] for r in rows}  # unique final_labels
         if len(labels) > 1:
             # Disagreement — flag as pending if not already resolved.
             conn.execute(
