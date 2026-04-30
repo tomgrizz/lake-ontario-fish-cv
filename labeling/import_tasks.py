@@ -237,10 +237,21 @@ def _build_one_task(
 
     clip_url = ls_base + "clips/" + clip_basename
 
+    # Embed video as a native HTML5 element — more reliable than LS's Video
+    # tag which can fail with external HTTP sources on some LS versions.
+    video_html = (
+        f'<video autoplay loop controls '
+        f'style="width:100%;max-height:420px;margin-bottom:8px;background:#000">'
+        f'<source src="{clip_url}" type="video/mp4">'
+        f'Video unavailable.</video>'
+        + task_html
+    )
+
     return {
         "data": {
-            "clip_url":  clip_url,
-            "task_html": task_html,
+            "clip_url":   clip_url,
+            "video_html": video_html,
+            "task_html":  task_html,
             # _model_version and _original_confidence intentionally omitted;
             # predictions[0].model_version / .score round-trip and supersede.
             "_video_id":                  item["video_id"],
