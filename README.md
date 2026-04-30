@@ -61,8 +61,64 @@ specific to this environment.
 - **Test set** is versioned as `test_set_v1`, `test_set_v2`, etc. and is never modified
   in place
 
+## Labeling — reviewer quick-start
+
+Fish tracks from the inference pipeline are reviewed in Label Studio. As a reviewer
+you just need a browser — no installation required.
+
+### Access
+
+Open this URL in your browser (you must be connected to Tailscale):
+
+```
+http://100.68.58.2:8080
+```
+
+Log in with the credentials Tom provided. You will land on the
+**Salmonid Fish Review** project.
+
+### How to label
+
+1. Click **Label All Tasks** to enter the labeling stream.
+2. A short clip plays automatically showing one fish track with a bounding box overlay.
+3. The model's best guess is already selected — if it's correct, just press **Submit**
+   (or **Enter**). That's most tasks.
+4. If the model is wrong, press the correct species key before submitting:
+
+| Key | Action |
+|-----|--------|
+| **1** | Chinook Salmon |
+| **2** | Coho Salmon |
+| **3** | Atlantic Salmon |
+| **4** | Rainbow Trout |
+| **5** | Brown Trout |
+| **n** | Not a fish (debris, shadow, artifact) |
+| **m** | Multiple fish merged into one track |
+| **u** | Unsure — flag for senior review |
+
+5. Label Studio advances to the next task automatically after each submission.
+
+### Species ID cues (quick reference)
+
+| Species | Key features |
+|---------|-------------|
+| Chinook Salmon | Largest body, black gum line, black spots on both lobes of tail |
+| Coho Salmon | Smaller spots on upper tail lobe only, white gum line |
+| Atlantic Salmon | Spots above lateral line, forked tail, slender |
+| Rainbow Trout | Pink/red lateral stripe, heavily spotted including lower body |
+| Brown Trout | Orange/red spots with pale halos, squared tail |
+
+**Edge cases:** Label juveniles by species if confident. For partial views, label if
+confident — otherwise press **u**. If two fish appear in the same clip, press **m**.
+Some tasks have known correct answers for quality monitoring — treat them like any
+other task.
+
+### Target pace
+
+Confident tasks (Confirm) should take 2–3 seconds. Exception tasks (wrong species,
+not a fish, unsure) take longer — that's expected.
+
 ## Status
 
-Active development. Currently building inference pipeline v2 with full per-detection
-outputs (bounding boxes, full softmax, track IDs) to support the labeling workflow and
-downstream retraining.
+Active development. Inference pipeline v2 running (~23% complete as of April 2026).
+Labeling infrastructure operational. Retraining pipeline planned after first label batch.
