@@ -235,7 +235,9 @@ def _build_one_task(
         mean_conf=mean_conf,
     )
 
-    clip_url = ls_base + "clips/" + clip_basename
+    # ls_base should already point to the directory containing the clips.
+    # Don't append a hardcoded "clips/" subdirectory — the caller controls the path.
+    clip_url = ls_base + clip_basename
 
     # Embed video as a native HTML5 element — more reliable than LS's Video
     # tag which can fail with external HTTP sources on some LS versions.
