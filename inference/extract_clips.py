@@ -225,10 +225,52 @@ def _extract_annotated_clip(
     fh: int,
     det_df: pd.DataFrame,
 ) -> bool:
-    """Read frames start_frame..end_frame, draw bbox overlay, write 360p MP4."""
+    """Read frames start_frame..end_frame, draw bbox overlay, write 360p MP4.
+
+    Bboxes are linearly interpolated between detected frames so the overlay
+    is smooth even with frame_skip > 1. Without interpolation the bbox
+    flickers on/off every N frames.
+    """
     det_by_frame = {
         int(r["frame_number"]): r for _, r in det_df.iterrows()
     }
+    # Pre-compute interpolated bbox for every frame in the clip range.
+    det_frames = sorted(det_by_frame.keys())
+    interp_bbox: dict[int, tuple[int, int, int, int]] = {}
+    if det_frames:
+        for frame_idx in range(start_frame, end_frame + 1):
+            if frame_idx in det_by_frame:
+                r = det_by_frame[frame_idx]
+                interp_bbox[frame_idx] = (
+                    int(r["bbox_x1"]), int(r["bbox_y1"]),
+                    int(r["bbox_x2"]), int(r["bbox_y2"]),
+                )
+            else:
+                # Find surrounding detected frames and lerp.
+                prev = [f for f in det_frames if f <= frame_idx]
+                nxt  = [f for f in det_frames if f >  frame_idx]
+                if prev and nxt:
+                    f0, f1 = prev[-1], nxt[0]
+                    t = (frame_idx - f0) / (f1 - f0)
+                    r0, r1 = det_by_frame[f0], det_by_frame[f1]
+                    interp_bbox[frame_idx] = (
+                        int(r0["bbox_x1"] + t * (r1["bbox_x1"] - r0["bbox_x1"])),
+                        int(r0["bbox_y1"] + t * (r1["bbox_y1"] - r0["bbox_y1"])),
+                        int(r0["bbox_x2"] + t * (r1["bbox_x2"] - r0["bbox_x2"])),
+                        int(r0["bbox_y2"] + t * (r1["bbox_y2"] - r0["bbox_y2"])),
+                    )
+                elif prev:
+                    r0 = det_by_frame[prev[-1]]
+                    interp_bbox[frame_idx] = (
+                        int(r0["bbox_x1"]), int(r0["bbox_y1"]),
+                        int(r0["bbox_x2"]), int(r0["bbox_y2"]),
+                    )
+                elif nxt:
+                    r1 = det_by_frame[nxt[0]]
+                    interp_bbox[frame_idx] = (
+                        int(r1["bbox_x1"]), int(r1["bbox_y1"]),
+                        int(r1["bbox_x2"]), int(r1["bbox_y2"]),
+                    )
 
     # Scale factor for 360p output.
     scale = CLIP_HEIGHT / fh
@@ -249,21 +291,21 @@ def _extract_annotated_clip(
             if not ret:
                 break
 
-            # Draw bbox overlay if this frame has a detection.
-            if frame_idx in det_by_frame:
-                det = det_by_frame[frame_idx]
-                x1, y1, x2, y2 = int(det["bbox_x1"]), int(det["bbox_y1"]), \
-                                  int(det["bbox_x2"]), int(det["bbox_y2"])
+            # Draw interpolated bbox overlay on every frame.
+            if frame_idx in interp_bbox:
+                x1, y1, x2, y2 = interp_bbox[frame_idx]
                 cv2.rectangle(frame, (x1, y1), (x2, y2), BBOX_COLOR_BGR, BBOX_THICKNESS)
 
-                # Faint species label in corner of bbox.
-                cls_idx = int(det["predicted_class"])
-                label = FISH_CLASSES.get(cls_idx, "?")
-                conf = float(det["detection_confidence"])
-                text = f"{label} {conf:.2f}"
-                cv2.putText(frame, text, (x1 + 3, y1 + 16),
-                            cv2.FONT_HERSHEY_SIMPLEX, LABEL_SCALE,
-                            BBOX_COLOR_BGR, LABEL_THICKNESS, cv2.LINE_AA)
+                # Species label only on frames with actual detections.
+                if frame_idx in det_by_frame:
+                    det = det_by_frame[frame_idx]
+                    cls_idx = int(det["predicted_class"])
+                    label = FISH_CLASSES.get(cls_idx, "?")
+                    conf = float(det["detection_confidence"])
+                    text = f"{label} {conf:.2f}"
+                    cv2.putText(frame, text, (x1 + 3, y1 + 16),
+                                cv2.FONT_HERSHEY_SIMPLEX, LABEL_SCALE,
+                                BBOX_COLOR_BGR, LABEL_THICKNESS, cv2.LINE_AA)
 
             # Resize to 360p.
             resized = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
