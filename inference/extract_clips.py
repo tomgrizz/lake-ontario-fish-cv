@@ -273,9 +273,17 @@ def _extract_annotated_clip(
         writer.release()
 
     # Re-encode with ffmpeg for h264 + proper MP4 container.
+    # Prefer system ffmpeg; fall back to imageio_ffmpeg bundle so this works
+    # even without a system ffmpeg installation.
+    ffmpeg_cmd = "ffmpeg"
+    try:
+        import imageio_ffmpeg
+        ffmpeg_cmd = imageio_ffmpeg.get_ffmpeg_exe()
+    except ImportError:
+        pass
     try:
         subprocess.run(
-            ["ffmpeg", "-y", "-i", str(tmp_path),
+            [ffmpeg_cmd, "-y", "-i", str(tmp_path),
              "-c:v", "libx264", "-preset", "fast", "-crf", "23",
              "-an", str(clip_path)],
             check=True,
@@ -284,7 +292,8 @@ def _extract_annotated_clip(
         tmp_path.unlink(missing_ok=True)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError):
-        # ffmpeg not available or failed — keep the raw mp4v file.
+        # ffmpeg failed — keep raw file but warn (browser may not play mp4v).
+        print(f"  WARN: ffmpeg re-encode failed for {clip_path.name}, keeping raw mp4v")
         tmp_path.rename(clip_path)
         return True
 
