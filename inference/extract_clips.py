@@ -81,7 +81,8 @@ def main() -> None:
     _ensure_columns(tracks_db)
 
     # Load tracks that still need clips (clip_path IS NULL).
-    tracks = _load_pending_tracks(tracks_db, limit=args.limit)
+    tracks = _load_pending_tracks(tracks_db, limit=args.limit,
+                                  priority_class=args.priority_class)
     print(f"Tracks needing clips: {len(tracks):,}")
 
     if not tracks:
@@ -361,15 +362,29 @@ def _ensure_columns(db_path: Path) -> None:
     conn.close()
 
 
-def _load_pending_tracks(db_path: Path, limit: Optional[int]) -> List[dict]:
+def _load_pending_tracks(
+    db_path: Path,
+    limit: Optional[int],
+    priority_class: Optional[int] = None,
+) -> List[dict]:
+    """Load tracks needing clips. If priority_class is set, fetch those first."""
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    sql = "SELECT * FROM tracks WHERE clip_path IS NULL"
-    if limit:
-        sql += f" LIMIT {limit}"
-    rows = [dict(r) for r in conn.execute(sql).fetchall()]
+    rows = []
+    if priority_class is not None:
+        # Priority species first, then remaining
+        sql_p = (f"SELECT * FROM tracks WHERE clip_path IS NULL "
+                 f"AND predicted_class={priority_class}")
+        sql_r = (f"SELECT * FROM tracks WHERE clip_path IS NULL "
+                 f"AND predicted_class!={priority_class}")
+        priority = [dict(r) for r in conn.execute(sql_p).fetchall()]
+        rest    = [dict(r) for r in conn.execute(sql_r).fetchall()]
+        rows = priority + rest
+    else:
+        rows = [dict(r) for r in conn.execute(
+            "SELECT * FROM tracks WHERE clip_path IS NULL").fetchall()]
     conn.close()
-    return rows
+    return rows[:limit] if limit else rows
 
 
 def _update_track(db_path: Path, result: dict) -> None:
@@ -443,6 +458,9 @@ def _parse_args() -> argparse.Namespace:
                    help="Seconds after best_id_frame (default 1.5).")
     p.add_argument("--limit", type=int, default=None, metavar="N",
                    help="Process only N tracks (for testing).")
+    p.add_argument("--priority-class", type=int, default=None, metavar="CLASS",
+                   help="Extract this species class first (0=Chinook,1=Coho,2=Atlantic,"
+                        "3=Rainbow,4=Brown). Remaining slots filled from other species.")
     p.add_argument("--workers", type=int, default=4, metavar="N",
                    help="Parallel workers for clip extraction (default 4).")
     return p.parse_args()
