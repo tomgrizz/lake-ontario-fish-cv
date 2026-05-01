@@ -461,8 +461,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--priority-class", type=int, default=None, metavar="CLASS",
                    help="Extract this species class first (0=Chinook,1=Coho,2=Atlantic,"
                         "3=Rainbow,4=Brown). Remaining slots filled from other species.")
-    p.add_argument("--workers", type=int, default=4, metavar="N",
-                   help="Parallel workers for clip extraction (default 4).")
+    p.add_argument("--workers", type=int, default=2, metavar="N",
+                   help="Parallel workers for clip extraction (default 2). "
+                        "Keep low when the inference run is also active — "
+                        "both compete for G: drive I/O and RAM.")
     return p.parse_args()
 
 
