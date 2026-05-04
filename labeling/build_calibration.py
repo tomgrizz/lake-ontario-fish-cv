@@ -259,24 +259,44 @@ def _extract_clip(
         cap.release()
         return False
 
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start)
-    for fi in range(start, end + 1):
-        ret, frame = cap.read()
-        if not ret:
-            break
-        # Draw interpolated bbox on every frame (scaled to output resolution)
-        if fi in interp:
-            xtl, ytl, xbr, ybr = interp[fi]
-            x1 = max(0, int(xtl * scale))
-            y1 = max(0, int(ytl * scale))
-            x2 = min(out_w, int(xbr * scale))
-            y2 = min(CLIP_HEIGHT, int(ybr * scale))
-            resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
-            cv2.rectangle(resized, (x1, y1), (x2, y2), BBOX_COLOR, 2)
-        else:
-            resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
-        writer.write(resized)
-    cap.release()
+    # Use decord for exact per-frame random access — cv2 seek lands on the
+    # nearest H.264 keyframe, causing all bbox positions to be offset.
+    try:
+        from decord import VideoReader, cpu as dcpu
+        vr = VideoReader(video_path, ctx=dcpu(0))
+        for fi in range(start, min(end + 1, len(vr))):
+            frame_rgb = vr[fi].asnumpy()          # exact frame, RGB
+            frame = frame_rgb[:, :, ::-1].copy()  # BGR for cv2 drawing
+            if fi in interp:
+                xtl, ytl, xbr, ybr = interp[fi]
+                x1 = max(0, int(xtl * scale))
+                y1 = max(0, int(ytl * scale))
+                x2 = min(out_w, int(xbr * scale))
+                y2 = min(CLIP_HEIGHT, int(ybr * scale))
+                resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
+                cv2.rectangle(resized, (x1, y1), (x2, y2), BBOX_COLOR, 2)
+            else:
+                resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
+            writer.write(resized)
+    except Exception:
+        # Fallback to cv2 if decord unavailable
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start)
+        for fi in range(start, end + 1):
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if fi in interp:
+                xtl, ytl, xbr, ybr = interp[fi]
+                x1 = max(0, int(xtl * scale))
+                y1 = max(0, int(ytl * scale))
+                x2 = min(out_w, int(xbr * scale))
+                y2 = min(CLIP_HEIGHT, int(ybr * scale))
+                resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
+                cv2.rectangle(resized, (x1, y1), (x2, y2), BBOX_COLOR, 2)
+            else:
+                resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
+            writer.write(resized)
+    cap.release()   # no-op if decord path was taken, safe to call anyway
     writer.release()
 
     # Re-encode to H.264
