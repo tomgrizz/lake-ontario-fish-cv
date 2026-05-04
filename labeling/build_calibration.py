@@ -92,7 +92,10 @@ def main() -> None:
             "height": int(task.find("original_size/height").text),
             "offset": global_offset,
         }
-        global_offset += size - overlap
+        # Use full size, no overlap subtraction. CVAT's global frame counter
+        # runs sequentially across independent video files without reducing
+        # for overlap (overlap only provides annotation context, not shared frames).
+        global_offset += size
 
     inserted = skipped_no_video = skipped_species = skipped_existing = 0
 
