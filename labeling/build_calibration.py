@@ -141,11 +141,23 @@ def main() -> None:
         stem = "cal_" + hashlib.sha1(key.encode()).hexdigest()[:12]
         clip_path = clips_dir / f"{stem}.mp4"
 
+        # Collect all valid keyframes for interpolation across the clip
+        keyframes = {}
+        for box in track.findall("box"):
+            if box.get("outside") == "1":
+                continue
+            gf = int(box.get("frame"))
+            lf = gf - offset
+            keyframes[lf] = (
+                float(box.get("xtl")), float(box.get("ytl")),
+                float(box.get("xbr")), float(box.get("ybr")),
+            )
+
         if not clip_path.exists():
             ok = _extract_clip(
                 video_path, local_frame, clip_path,
                 meta["width"], meta["height"],
-                xtl, ytl, xbr, ybr, args.lead_in, args.lead_out,
+                keyframes, args.lead_in, args.lead_out,
             )
             if not ok:
                 skipped_no_video += 1
@@ -204,8 +216,9 @@ def main() -> None:
 
 def _extract_clip(
     video_path, local_frame, clip_path, fw, fh,
-    xtl, ytl, xbr, ybr, lead_in_sec, lead_out_sec,
+    keyframes, lead_in_sec, lead_out_sec,
 ):
+    """Extract clip with interpolated bbox drawn on every frame."""
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         return False
@@ -219,6 +232,26 @@ def _extract_clip(
 
     scale  = CLIP_HEIGHT / fh
     out_w  = int(fw * scale)
+
+    # Pre-compute interpolated bbox for every frame in clip range
+    kf_frames = sorted(keyframes.keys())
+    interp = {}
+    for fi in range(start, end + 1):
+        if fi in keyframes:
+            interp[fi] = keyframes[fi]
+        else:
+            prev = [f for f in kf_frames if f <= fi]
+            nxt  = [f for f in kf_frames if f >  fi]
+            if prev and nxt:
+                f0, f1 = prev[-1], nxt[0]
+                t = (fi - f0) / (f1 - f0)
+                b0, b1 = keyframes[f0], keyframes[f1]
+                interp[fi] = tuple(b0[i] + t * (b1[i] - b0[i]) for i in range(4))
+            elif prev:
+                interp[fi] = keyframes[prev[-1]]
+            elif nxt:
+                interp[fi] = keyframes[nxt[0]]
+
     tmp    = clip_path.with_suffix(".tmp.mp4")
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(str(tmp), fourcc, fps, (out_w, CLIP_HEIGHT))
@@ -231,12 +264,17 @@ def _extract_clip(
         ret, frame = cap.read()
         if not ret:
             break
-        # Draw bbox on the best frame only
-        if fi == local_frame:
-            x1, y1 = int(xtl), int(ytl)
-            x2, y2 = int(xbr), int(ybr)
-            cv2.rectangle(frame, (x1, y1), (x2, y2), BBOX_COLOR, 2)
-        resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
+        # Draw interpolated bbox on every frame (scaled to output resolution)
+        if fi in interp:
+            xtl, ytl, xbr, ybr = interp[fi]
+            x1 = max(0, int(xtl * scale))
+            y1 = max(0, int(ytl * scale))
+            x2 = min(out_w, int(xbr * scale))
+            y2 = min(CLIP_HEIGHT, int(ybr * scale))
+            resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
+            cv2.rectangle(resized, (x1, y1), (x2, y2), BBOX_COLOR, 2)
+        else:
+            resized = cv2.resize(frame, (out_w, CLIP_HEIGHT), interpolation=cv2.INTER_AREA)
         writer.write(resized)
     cap.release()
     writer.release()
