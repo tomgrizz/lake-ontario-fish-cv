@@ -131,6 +131,19 @@ def main() -> None:
 
         global_frame = int(best_box.get("frame"))
         local_frame  = global_frame - offset
+
+        # Sanity-check against actual video length.  CVAT can place annotations
+        # a few frames past the task boundary due to overlap rounding; clamp
+        # rather than skip so we don't lose a valid calibration track.
+        cap_check = cv2.VideoCapture(video_path)
+        total_video_frames = int(cap_check.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap_check.release()
+        if local_frame >= total_video_frames:
+            local_frame = total_video_frames - 1
+        if local_frame < 0:
+            skipped_no_video += 1
+            continue
+
         xtl = float(best_box.get("xtl"))
         ytl = float(best_box.get("ytl"))
         xbr = float(best_box.get("xbr"))
