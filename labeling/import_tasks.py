@@ -96,14 +96,24 @@ def main() -> None:
     conn = sqlite3.connect(str(tracks_db))
     conn.row_factory = sqlite3.Row
 
+    conn_labels = None
+    if args.labels_db:
+        conn_labels = sqlite3.connect(args.labels_db)
+        conn_labels.row_factory = sqlite3.Row
+
     result = _build_tasks(
         queue=queue,
         conn=conn,
+        conn_labels=conn_labels,
         clips_out=clips_out,
         ls_base=args.ls_base,
+        cal_ls_base=args.cal_ls_base or args.ls_base,
         model_version=args.model_version,
         copy_clips=not args.no_copy_clips,
     )
+
+    if conn_labels:
+        conn_labels.close()
 
     (out_dir / "tasks.json").write_text(
         json.dumps(result.tasks, indent=2),
@@ -136,8 +146,10 @@ def _build_tasks(
     *,
     queue: dict,
     conn: sqlite3.Connection,
+    conn_labels: "sqlite3.Connection | None",
     clips_out: Path,
     ls_base: str,
+    cal_ls_base: str,
     model_version: str,
     copy_clips: bool,
 ) -> _BuildResult:
@@ -153,6 +165,55 @@ def _build_tasks(
     for item in queue["items"]:
         video_id = item["video_id"]
         track_id = int(item["track_id"])
+        is_calibration = bool(item.get("calibration_task", 0))
+
+        # Calibration tasks: look up clip from calibration_clips in labels.sqlite
+        if is_calibration and conn_labels is not None:
+            cal_row = conn_labels.execute(
+                "SELECT clip_path FROM calibration_clips WHERE video_id=? AND track_id=?",
+                (video_id, track_id),
+            ).fetchone()
+            if cal_row is None or not Path(cal_row["clip_path"]).exists():
+                skipped.append({**item, "_skip_reason": "calibration_clip_missing"})
+                continue
+            clip_src = Path(cal_row["clip_path"])
+            clip_basename = clip_src.name
+            clip_url = cal_ls_base.rstrip("/") + "/" + clip_basename
+            if copy_clips and not (clips_out / clip_basename).exists():
+                import shutil as _shutil
+                _shutil.copy2(clip_src, clips_out / clip_basename)
+            # Build minimal task for calibration — no model confidence bars,
+            # no pre-selected prediction (reviewer must make an independent call)
+            task_html = (
+                f'<div style="font-family:system-ui,sans-serif;font-size:13px;'
+                f'padding:6px 4px">'
+                f'<b>Calibration task</b> &nbsp; '
+                f'video_id={video_id[-40:]} &nbsp; track={track_id}</div>'
+            )
+            video_html = (
+                f'<video autoplay loop controls style="width:100%;max-height:420px;'
+                f'margin-bottom:8px;background:#000">'
+                f'<source src="{clip_url}" type="video/mp4">Video unavailable.</video>'
+                + task_html
+            )
+            tasks.append({
+                "data": {
+                    "clip_url":   clip_url,
+                    "video_html": video_html,
+                    "task_html":  task_html,
+                    "_video_id":   video_id,
+                    "_track_id":   track_id,
+                    "_batch_id":   batch_id,
+                    "_calibration": True,
+                    "_multi_reviewed": False,
+                    "_original_predicted_class_6": "unknown",
+                    "_original_predicted_species": "unknown",
+                },
+                # No predictions — reviewer must make an independent call
+            })
+            continue
+
+        # Normal tasks: look up from tracks.sqlite
         row = conn.execute(select_sql, (video_id, track_id)).fetchone()
         if row is None:
             skipped.append({**item, "_skip_reason": "track_not_in_tracks_db"})
@@ -428,6 +489,12 @@ def _parse_args() -> argparse.Namespace:
                    help=f"LS local-files URL prefix (default {DEFAULT_LS_BASE})")
     p.add_argument("--no-copy-clips", action="store_true",
                    help="Do not copy clip files; useful for dry-run.")
+    p.add_argument("--labels-db", default=None, metavar="PATH",
+                   help="labels.sqlite containing calibration_clips table "
+                        "(required when batch includes calibration tasks).")
+    p.add_argument("--cal-ls-base", default=None, metavar="URL",
+                   help="LS URL prefix for calibration clips "
+                        "(defaults to --ls-base if not set).")
     return p.parse_args()
 
 
